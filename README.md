@@ -1,2 +1,2 @@
 # AgroMatch_Group6WFP
-An intelligent crop recommendation platform that uses climate, soil, rainfall, and environmental data to determine the most suitable crops for planting in Northern Ghana. The system also features a crop knowledge library where users can explore crop characteristics, cultivation requirements, and agricultural insights.
+AgroSense is an AI-powered agricultural monitoring platform that helps Ghanaian farmers detect Fall Armyworm infestations in maize crops using image classification. Farmers upload maize leaf images, and the system predicts infestation severity, provides treatment recommendations, and supports real-time outbreak monitoring through an interactive dashboard.
