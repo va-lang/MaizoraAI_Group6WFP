@@ -90,12 +90,6 @@ RESULT_TEXT = {
     },
 }
 
-RECENT_SCANS = [
-    {"farmer": "Kofi Mensah", "region": "Ashanti", "time": "2 min ago", "severity": "Severe"},
-    {"farmer": "Ama Asante", "region": "Brong-Ahafo", "time": "8 min ago", "severity": "Moderate"},
-    {"farmer": "Kwame Boateng", "region": "Northern", "time": "15 min ago", "severity": "Healthy"},
-]
-
 DISTRICT_REPORTS = [
     {
         "District": "Ejura-Sekyedumase",
