@@ -23,6 +23,7 @@ from app_data import (
     SEVERITY_RECOMMENDATIONS_TWI,
     TREND_DATA,
 )
+from model_service import predict_leaf_image
 
 
 st.set_page_config(
@@ -135,7 +136,7 @@ def profile_page() -> None:
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Continue as Extension Officer", use_container_width=True):
+        if st.button("Sign in as an Extension Officer", use_container_width=True):
             choose_profile("Extension Officer")
 
 
@@ -226,6 +227,9 @@ def scan_page() -> None:
             st.image(selected_image, caption="Selected maize leaf image", use_container_width=True)
 
         if st.button("Analyze Crop", type="primary", use_container_width=True):
+            if selected_image is None:
+                st.warning("Upload or capture a maize leaf image before analysis.")
+                return
             progress = st.progress(0)
             status = st.empty()
             for value, label in [
@@ -237,7 +241,7 @@ def scan_page() -> None:
                 status.write(label)
                 progress.progress(value)
                 time.sleep(0.25)
-            st.session_state.prediction = demo_prediction(selected_image)
+            st.session_state.prediction = predict_leaf_image(selected_image)
             st.session_state.scan_meta = {
                 "location": "Ashanti Region, Ejura",
                 "crop_stage": "Vegetative (V6)",
@@ -260,13 +264,26 @@ def results_page() -> None:
     with lang_col:
         language = st.selectbox("Language", ["English", "Twi"])
     text = RESULT_TEXT[language]
+    st.title(text["title"])
+    st.caption(text["caption"])
+
+    if prediction.get("source") in {"error", "no_detection"}:
+        if prediction.get("source") == "no_detection":
+            st.warning("The model could not detect a maize leaf condition in this image.")
+            st.info("Try a clearer maize leaf photo with the leaf filling most of the frame.")
+        else:
+            st.error("The real maize model could not run in this environment.")
+            st.caption(f"Model error: {prediction.get('error', 'Unknown model error')}")
+        if st.button(text["scan_another"], type="primary"):
+            goto("Scan Crop")
+        return
+
     recommendations = (
         SEVERITY_RECOMMENDATIONS_TWI[severity]
         if language == "Twi"
         else SEVERITY_RECOMMENDATIONS[severity]
     )
-    st.title(text["title"])
-    st.caption(text["caption"])
+
     if severity == "Severe":
         alert("severe", text["severe_alert"])
 
@@ -280,6 +297,8 @@ def results_page() -> None:
     with right:
         st.markdown(f"### {text['prediction']}: {severity_badge(severity)}", unsafe_allow_html=True)
         st.metric(text["confidence"], f"{confidence}%")
+        if prediction.get("source") == "model":
+            st.caption("Prediction generated with maize_model_production_results/best.pt")
 
         st.markdown(f"### {text['recommended_action']}")
         for recommendation in recommendations:
