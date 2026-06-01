@@ -1,4 +1,5 @@
 import time
+from io import BytesIO
 
 import pandas as pd
 import streamlit as st
@@ -15,7 +16,6 @@ from app_components import (
 from app_data import (
     DISTRICT_REPORTS,
     HISTORY_DATA,
-    RECENT_SCANS,
     REGIONAL_ACTIVITY,
     RESULT_TEXT,
     SEVERITY_COLORS,
@@ -26,7 +26,7 @@ from app_data import (
 
 
 st.set_page_config(
-    page_title="AgroSense - AI Maize Pest Detection",
+    page_title="MaizoraAI - AI Maize Pest Detection",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -35,6 +35,8 @@ apply_theme()
 
 
 def init_state() -> None:
+    if "profile" not in st.session_state:
+        st.session_state.profile = None
     if "page" not in st.session_state:
         st.session_state.page = "Home"
     if "last_upload" not in st.session_state:
@@ -48,14 +50,42 @@ def goto(page: str) -> None:
     st.rerun()
 
 
+def choose_profile(profile: str) -> None:
+    st.session_state.profile = profile
+    st.session_state.page = "Home"
+    st.rerun()
+
+
+def build_excel_report(severity: str, confidence: int, recommendations: list[str]) -> bytes:
+    output = BytesIO()
+    summary = pd.DataFrame(
+        [
+            {"Field": "Severity", "Value": severity},
+            {"Field": "Confidence", "Value": f"{confidence}%"},
+        ]
+    )
+    actions = pd.DataFrame({"Recommended Action": recommendations})
+
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        summary.to_excel(writer, sheet_name="Summary", index=False)
+        actions.to_excel(writer, sheet_name="Recommendations", index=False)
+
+    return output.getvalue()
+
+
 def sidebar_nav() -> None:
     with st.sidebar:
-        st.markdown("## 🌱 AgroSense")
+        st.markdown("## 🌱 MaizoraAI")
         st.caption("AI Fall Armyworm detection for Ghanaian maize farms")
+        st.markdown(f"**Profile:** {st.session_state.profile}")
+        if st.button("Switch Profile", use_container_width=True):
+            st.session_state.profile = None
+            st.rerun()
+        st.divider()
         page = st.radio(
             "Navigation",
-            ["Home", "Scan Crop", "Results", "Dashboard", "History"],
-            index=["Home", "Scan Crop", "Results", "Dashboard", "History"].index(st.session_state.page),
+            ["Home", "Scan Crop", "Results", "History"],
+            index=["Home", "Scan Crop", "Results", "History"].index(st.session_state.page),
         )
         st.session_state.page = page
         st.divider()
@@ -66,14 +96,76 @@ def sidebar_nav() -> None:
         st.divider()
         st.caption("Demo account")
         st.write("Akosua Kumi")
-        st.caption("Ejura District, Ashanti")
+        st.caption("Farmer - Ejura District, Ashanti")
+
+
+def profile_page() -> None:
+    st.markdown(
+        """
+        <div class="hero">
+          <div class="tag">MaizoraAI Profiles</div>
+          <h1>Select Your Profile</h1>
+          <p>Choose Farmer to access the current maize crop scanning workflow. Extension Officer tools will be added later.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    farmer_col, officer_col = st.columns(2)
+    with farmer_col:
+        st.markdown(
+            """
+            <div class="card">
+              <div style="font-size:2.4rem">👨‍🌾</div>
+              <div class="feature-title">Farmer</div>
+              <div class="muted">Scan maize leaves, view AI results, download reports, and check scan history.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Continue as Farmer", type="primary", use_container_width=True):
+            choose_profile("Farmer")
+    with officer_col:
+        st.markdown(
+            """
+            <div class="card">
+              <div style="font-size:2.4rem">🧑‍💼</div>
+              <div class="feature-title">Extension Officer</div>
+              <div class="muted">Regional monitoring and farmer support tools will be developed in the next phase.</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("Continue as Extension Officer", use_container_width=True):
+            choose_profile("Extension Officer")
+
+
+def extension_officer_page() -> None:
+    with st.sidebar:
+        st.markdown("## 🌱 MaizoraAI")
+        st.markdown("**Profile:** Extension Officer")
+        if st.button("Switch Profile", use_container_width=True):
+            st.session_state.profile = None
+            st.rerun()
+
+    st.markdown(
+        """
+        <div class="hero">
+          <div class="tag">Extension Officer</div>
+          <h1>Officer Workspace Coming Later</h1>
+          <p>This profile is reserved for future regional monitoring, farmer case review, and outbreak response workflows.</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("Switch to Farmer Profile", type="primary"):
+        choose_profile("Farmer")
 
 
 def home_page() -> None:
     st.markdown(
         """
         <div class="hero">
-          <div class="tag">AgroSense - AI Maize Pest Detection</div>
+          <div class="tag">MaizoraAI - AI Maize Pest Detection</div>
           <h1>AI-Powered Fall Armyworm Detection for Ghanaian Farmers</h1>
           <p>Upload a maize leaf photo and get instant infestation severity predictions, actionable recommendations, and real-time outbreak monitoring from your phone.</p>
         </div>
@@ -81,11 +173,9 @@ def home_page() -> None:
         unsafe_allow_html=True,
     )
     st.markdown('<div class="hero-actions">', unsafe_allow_html=True)
-    hero_cta1, hero_cta2 = st.columns(2)
-    if hero_cta1.button("Scan Crop", type="primary", use_container_width=True, key="hero_scan_crop"):
+    _, hero_cta, _ = st.columns([1, 0.35, 1])
+    if hero_cta.button("📷 Scan Crop", type="primary", use_container_width=True, key="hero_scan_crop"):
         goto("Scan Crop")
-    if hero_cta2.button("View Dashboard", type="primary", use_container_width=True, key="hero_view_dashboard"):
-        goto("Dashboard")
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown(
@@ -121,7 +211,6 @@ def home_page() -> None:
 def scan_page() -> None:
     st.title("Scan Your Maize Crop")
     st.caption("Upload a clear photo of a maize leaf to detect Fall Armyworm infestation severity.")
-    alert("warning", "<strong>Outbreak Alert - Brong-Ahafo Region:</strong> 12 severe infestations reported in the last 24 hours.")
 
     left, right = st.columns([1.35, 1])
     with left:
@@ -135,10 +224,6 @@ def scan_page() -> None:
         if selected_image:
             st.session_state.last_upload = selected_image
             st.image(selected_image, caption="Selected maize leaf image", use_container_width=True)
-
-        location = st.text_input("Location", "Ashanti Region, Ejura")
-        crop_stage = st.selectbox("Crop stage", ["Seedling", "Vegetative (V6)", "Tasseling", "Silking"])
-        farm_size = st.number_input("Farm size in acres", min_value=0.1, value=2.3, step=0.1)
 
         if st.button("Analyze Crop", type="primary", use_container_width=True):
             progress = st.progress(0)
@@ -154,9 +239,9 @@ def scan_page() -> None:
                 time.sleep(0.25)
             st.session_state.prediction = demo_prediction(selected_image)
             st.session_state.scan_meta = {
-                "location": location,
-                "crop_stage": crop_stage,
-                "farm_size": farm_size,
+                "location": "Ashanti Region, Ejura",
+                "crop_stage": "Vegetative (V6)",
+                "farm_size": 2.3,
             }
             goto("Results")
 
@@ -165,14 +250,6 @@ def scan_page() -> None:
         card("Good Lighting", "Take photos in natural daylight. Avoid harsh shadows on the leaf.", "☀️")
         card("Fill the Frame", "The leaf should fill at least 70% of the photo for best accuracy.", "🔎")
         card("Show Damage Areas", "Focus on chewing marks, frass, or discoloration.", "👁️")
-
-        st.subheader("Recent Community Scans")
-        for item in RECENT_SCANS:
-            st.markdown(
-                f"**{item['farmer']}** - {item['region']}  \n"
-                f"<span class='muted'>{item['time']}</span> {severity_badge(item['severity'])}",
-                unsafe_allow_html=True,
-            )
 
 
 def results_page() -> None:
@@ -188,11 +265,6 @@ def results_page() -> None:
         if language == "Twi"
         else SEVERITY_RECOMMENDATIONS[severity]
     )
-    meta = st.session_state.get(
-        "scan_meta",
-        {"location": "Ashanti Region, Ejura", "crop_stage": "Vegetative (V6)", "farm_size": 2.3},
-    )
-
     st.title(text["title"])
     st.caption(text["caption"])
     if severity == "Severe":
@@ -204,19 +276,10 @@ def results_page() -> None:
             st.image(image_to_data_url(st.session_state.last_upload), caption=text["image_caption"], use_container_width=True)
         else:
             st.markdown("<div class='leaf-preview'>🌽</div>", unsafe_allow_html=True)
-        st.markdown(f"### {text['metadata']}")
-        st.write(f"**{text['location']}:** {meta['location']}")
-        st.write(f"**{text['crop_stage']}:** {meta['crop_stage']}")
-        st.write(f"**{text['farm_size']}:** {meta['farm_size']} acres")
-        st.write(f"**{text['logged_by']}:** Akosua Kumi")
 
     with right:
         st.markdown(f"### {text['prediction']}: {severity_badge(severity)}", unsafe_allow_html=True)
         st.metric(text["confidence"], f"{confidence}%")
-        scores = pd.DataFrame(
-            {"Severity": list(prediction["scores"].keys()), "Score": list(prediction["scores"].values())}
-        ).set_index("Severity")
-        st.bar_chart(scores, color=SEVERITY_COLORS.get(severity, "#38a357"))
 
         st.markdown(f"### {text['recommended_action']}")
         for recommendation in recommendations:
@@ -227,8 +290,9 @@ def results_page() -> None:
             goto("Scan Crop")
         c2.download_button(
             text["download"],
-            data=f"AgroSense Report\nSeverity: {severity}\nConfidence: {confidence}%\nLocation: {meta['location']}\n",
-            file_name="agrosense_report.txt",
+            data=build_excel_report(severity, confidence, recommendations),
+            file_name="MaizoraAI_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
 
@@ -275,7 +339,7 @@ def history_page() -> None:
 
     severity_filter = st.segmented_control(
         "Filter by severity",
-        ["All", "Severe", "Moderate", "Early", "Healthy"],
+        ["All", "Early", "Healthy", "Severe"],
         default="All",
     )
     rows = HISTORY_DATA
@@ -303,12 +367,19 @@ def history_page() -> None:
 
 def main() -> None:
     init_state()
+    if st.session_state.profile is None:
+        profile_page()
+        return
+
+    if st.session_state.profile == "Extension Officer":
+        extension_officer_page()
+        return
+
     sidebar_nav()
     pages = {
         "Home": home_page,
         "Scan Crop": scan_page,
         "Results": results_page,
-        "Dashboard": dashboard_page,
         "History": history_page,
     }
     pages[st.session_state.page]()

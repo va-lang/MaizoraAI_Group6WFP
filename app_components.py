@@ -75,6 +75,18 @@ def apply_theme() -> None:
           background: rgba(255,255,255,.15);
         }
 
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button {
+          background: rgba(255,255,255,.15) !important;
+          border: 1px solid rgba(255,255,255,.22) !important;
+          color: #ffffff !important;
+        }
+
+        section[data-testid="stSidebar"] div[data-testid="stButton"] > button:hover {
+          background: rgba(255,255,255,.2) !important;
+          border-color: rgba(255,255,255,.32) !important;
+          color: #ffffff !important;
+        }
+
         section[data-testid="stSidebar"] [data-testid="stCaptionContainer"] {
           color: rgba(255,255,255,.72);
         }
@@ -218,13 +230,13 @@ def apply_theme() -> None:
         }
 
         .hero-actions + div div[data-testid="stButton"] > button {
-          min-height: 88px;
-          font-size: 1.45rem;
-          border-radius: 16px;
+          min-height: 44px;
+          font-size: .95rem;
+          border-radius: 10px;
           background: linear-gradient(135deg, var(--green-600), var(--green-500)) !important;
           border: 1px solid var(--green-500) !important;
           color: #ffffff !important;
-          box-shadow: 0 8px 28px rgba(26,46,29,.12);
+          box-shadow: 0 4px 16px rgba(26,46,29,.12);
         }
 
         .hero-actions + div div[data-testid="stButton"] > button:hover {
