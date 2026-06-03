@@ -8,8 +8,8 @@ import streamlit as st
 from PIL import Image
 
 MODEL_PATH = Path("fall_armyworm_production/best.pt")
-os.environ.setdefault("YOLO_CONFIG_DIR", "/private/tmp/maizesecure_ultralytics")
-os.environ.setdefault("MPLCONFIGDIR", "/private/tmp/maizesecure_matplotlib")
+os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/maizesecure_ultralytics")
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/maizesecure_matplotlib")
 CLASS_TO_SEVERITY = {
     "healthy": "Healthy",
     "early_to_moderate": "Early to Moderate",
