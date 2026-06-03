@@ -8,3 +8,6 @@ maizesecure_scans.db
 maizesecure_scans.db-*
 maizora_scans.db
 maizora_scans.db-*
+fall armyworm.yolov8/
+model_dev.ipynb
+draft_app.py
