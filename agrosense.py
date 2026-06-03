@@ -145,7 +145,7 @@ def sidebar_nav() -> None:
         st.markdown("## 🌱 MaizeSecure")
         st.caption("AI Fall Armyworm detection for Ghanaian maize farms")
         st.markdown(f"**Profile:** {st.session_state.profile}")
-        if st.button("Switch Profile", use_container_width=True):
+        if st.button("Switch Profile", width="stretch"):
             st.session_state.profile = None
             st.rerun()
         st.divider()
@@ -189,7 +189,7 @@ def profile_page() -> None:
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Continue as Farmer", type="primary", use_container_width=True):
+        if st.button("Continue as Farmer", type="primary", width="stretch"):
             choose_profile("Farmer")
     with officer_col:
         st.markdown(
@@ -202,7 +202,7 @@ def profile_page() -> None:
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Sign in as an Extension Officer", use_container_width=True):
+        if st.button("Sign in as an Extension Officer", width="stretch"):
             choose_profile("Extension Officer")
 
 
@@ -210,7 +210,7 @@ def extension_officer_page() -> None:
     with st.sidebar:
         st.markdown("## 🌱 MaizeSecure")
         st.markdown("**Profile:** Extension Officer")
-        if st.button("Switch Profile", use_container_width=True):
+        if st.button("Switch Profile", width="stretch"):
             st.session_state.profile = None
             st.rerun()
 
@@ -241,7 +241,7 @@ def home_page() -> None:
     )
     st.markdown('<div class="hero-actions">', unsafe_allow_html=True)
     _, hero_cta, _ = st.columns([1, 0.35, 1])
-    if hero_cta.button("📷 Scan Crop", type="primary", use_container_width=True, key="hero_scan_crop"):
+    if hero_cta.button("📷 Scan Crop", type="primary", width="stretch", key="hero_scan_crop"):
         goto("Scan Crop")
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -319,9 +319,9 @@ def scan_page() -> None:
         if selected_image:
             st.session_state.last_upload = selected_image
             preview_image = selected_image.getvalue() if isinstance(selected_image, InMemoryUpload) else selected_image
-            st.image(preview_image, caption="Selected maize leaf image", use_container_width=True)
+            st.image(preview_image, caption="Selected maize leaf image", width="stretch")
 
-        if st.button("Analyze Crop", type="primary", use_container_width=True):
+        if st.button("Analyze Crop", type="primary", width="stretch"):
             if selected_image is None:
                 st.warning("Upload, capture, or extract a maize leaf image before analysis.")
                 return
@@ -387,7 +387,7 @@ def results_page() -> None:
     left, right = st.columns([1, 1.6])
     with left:
         if st.session_state.last_upload is not None:
-            st.image(image_to_data_url(st.session_state.last_upload), caption=text["image_caption"], use_container_width=True)
+            st.image(image_to_data_url(st.session_state.last_upload), caption=text["image_caption"], width="stretch")
         else:
             st.markdown("<div class='leaf-preview'>🌽</div>", unsafe_allow_html=True)
 
@@ -406,14 +406,14 @@ def results_page() -> None:
             st.write(f"- {recommendation}")
 
         c1, c2 = st.columns(2)
-        if c1.button(text["scan_another"], type="primary", use_container_width=True):
+        if c1.button(text["scan_another"], type="primary", width="stretch"):
             goto("Scan Crop")
         c2.download_button(
             text["download"],
             data=build_excel_report(severity, confidence, recommendations),
             file_name="MaizeSecure_report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
+            width="stretch",
         )
 
 
@@ -450,7 +450,7 @@ def dashboard_page() -> None:
         st.bar_chart(regional_df)
 
     st.subheader("District Outbreak Report")
-    st.dataframe(pd.DataFrame(DISTRICT_REPORTS), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(DISTRICT_REPORTS), width="stretch", hide_index=True)
 
 
 def history_page() -> None:
@@ -473,7 +473,7 @@ def history_page() -> None:
             st.subheader(f"Scan #{selected_scan['id']} Details")
             detail_image, detail_info = st.columns([1.1, 1])
             with detail_image:
-                st.image(selected_scan["image"], caption="Full scan image", use_container_width=True)
+                st.image(selected_scan["image"], caption="Full scan image", width="stretch")
             with detail_info:
                 st.markdown(severity_badge(selected_scan["severity"]), unsafe_allow_html=True)
                 st.metric("Confidence", f"{selected_scan['confidence']}%")
@@ -506,7 +506,7 @@ def history_page() -> None:
                     """,
                     unsafe_allow_html=True,
                 )
-                if st.button("View Details", key=f"history_scan_{item['id']}", use_container_width=True):
+                if st.button("View Details", key=f"history_scan_{item['id']}", width="stretch"):
                     st.session_state.selected_scan_id = item["id"]
                     st.rerun()
 
