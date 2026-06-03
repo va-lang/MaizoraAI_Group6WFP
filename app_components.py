@@ -30,13 +30,25 @@ def apply_theme() -> None:
           --yellow: #f5c842;
         }
 
-        html, body, [class*="css"] {
+        html, body {
           font-family: 'DM Sans', sans-serif;
           color: var(--text);
         }
 
         .stApp {
           background: #f5f9f6;
+          color: var(--text);
+        }
+
+        .stApp,
+        .stApp p,
+        .stApp li,
+        .stApp label,
+        .stApp span,
+        .stApp div,
+        .stApp [data-testid="stMarkdownContainer"],
+        .stApp [data-testid="stMarkdownContainer"] * {
+          color: var(--text);
         }
 
         header[data-testid="stHeader"] {
@@ -45,22 +57,23 @@ def apply_theme() -> None:
         }
 
         header[data-testid="stHeader"] * {
-          color: #ffffff;
+          color: #ffffff !important;
         }
 
         h1, h2, h3 {
           font-family: 'Sora', sans-serif;
           letter-spacing: 0;
+          color: var(--text);
         }
 
         section[data-testid="stSidebar"] {
           background: linear-gradient(180deg, var(--green-900), var(--green-800));
           border-right: 1px solid rgba(255,255,255,.14);
-          color: #ffffff;
+          color: #ffffff !important;
         }
 
         section[data-testid="stSidebar"] * {
-          color: #ffffff;
+          color: #ffffff !important;
         }
 
         section[data-testid="stSidebar"] div[role="radiogroup"] label {
@@ -109,7 +122,7 @@ def apply_theme() -> None:
             radial-gradient(circle at 22% 20%, rgba(128,224,154,.2), transparent 22%),
             linear-gradient(135deg, #1a3d25, #2a7a40);
           border-radius: 22px;
-          color: #fff;
+          color: #fff !important;
           padding: 60px 34px;
           text-align: center;
           margin-bottom: 28px;
@@ -119,10 +132,11 @@ def apply_theme() -> None:
           font-size: clamp(2rem, 5vw, 3.4rem);
           line-height: 1.14;
           margin-bottom: 14px;
+          color: #ffffff !important;
         }
 
         .hero p {
-          color: rgba(255,255,255,.82);
+          color: rgba(255,255,255,.82) !important;
           max-width: 720px;
           margin: 0 auto 26px;
           font-size: 1.05rem;
@@ -132,7 +146,7 @@ def apply_theme() -> None:
         .tag {
           display: inline-block;
           background: var(--green-100);
-          color: var(--green-700);
+          color: var(--green-700) !important;
           border-radius: 20px;
           padding: 5px 14px;
           font-size: .75rem;
@@ -145,7 +159,7 @@ def apply_theme() -> None:
         .hero .tag {
           background: rgba(77,201,114,.2);
           border: 1px solid rgba(77,201,114,.4);
-          color: #80e09a;
+          color: #80e09a !important;
         }
 
         .center-heading {
@@ -166,6 +180,13 @@ def apply_theme() -> None:
           justify-content: flex-start;
         }
 
+        .card,
+        .card *,
+        .history-card-fixed,
+        .history-card-fixed * {
+          color: var(--text);
+        }
+
         .feature-title {
           font-family: 'Sora', sans-serif;
           font-size: .98rem;
@@ -177,7 +198,7 @@ def apply_theme() -> None:
         }
 
         .muted {
-          color: var(--muted);
+          color: var(--muted) !important;
           font-size: .88rem;
           line-height: 1.55;
         }
@@ -218,13 +239,13 @@ def apply_theme() -> None:
         .alert-severe {
           background: #fff0f0;
           border: 1px solid #f5c0c0;
-          color: #7a1a1a;
+          color: #7a1a1a !important;
         }
 
         .alert-warning {
           background: #fff6ee;
           border: 1px solid #f5d5b0;
-          color: #7a3a00;
+          color: #7a3a00 !important;
         }
 
         .severity-badge {
@@ -250,7 +271,7 @@ def apply_theme() -> None:
           justify-content: center;
           border-radius: 18px;
           background: linear-gradient(135deg,#1a3d25 0%,#2a7a40 44%,#4dc972 100%);
-          color: white;
+          color: white !important;
           font-size: 5rem;
         }
 
