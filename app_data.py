@@ -2,7 +2,7 @@
 
 SEVERITY_COLORS = {
     "Healthy": "#38a357",
-    "Early": "#f5c842",
+    "Early to Moderate": "#f5c842",
     "Moderate": "#e87c2a",
     "Severe": "#d63c3c",
 }
@@ -13,7 +13,7 @@ SEVERITY_RECOMMENDATIONS = {
         "Continue weekly crop checks, especially after rainfall.",
         "Keep field edges weed-free to reduce pest shelter.",
     ],
-    "Early": [
+    "Early to Moderate": [
         "Inspect neighboring plants for egg masses or young larvae.",
         "Use neem-based biopesticide or approved early-stage treatment.",
         "Re-scan affected plants in 3 to 5 days.",
@@ -37,7 +37,7 @@ SEVERITY_RECOMMENDATIONS_TWI = {
         "Kɔ so hwɛ afuo no dapɛn biara, titiriw sɛ osu tɔ wie a.",
         "Yi nwura fi afuo no ano na mmoawa annya baabi ankɔhyɛ.",
     ],
-    "Early": [
+    "Early to Moderate": [
         "Hwɛ nnua a ɛbɛn ho sɛ mmoawa nkesua anaa mmoawa nketewa wɔ so.",
         "Fa neem aduru anaa aduru a wɔagye atom ma mfitiaseɛ yare no.",
         "San scan nnua no wɔ nna 3 kosi 5 mu.",

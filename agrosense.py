@@ -26,7 +26,7 @@ from app_data import (
     TREND_DATA,
 )
 from model_service import predict_leaf_image
-from storage_service import format_scan_time, get_scans, init_db, save_scan
+from storage_service import format_scan_time, get_scan, get_scans, init_db, save_scan
 
 
 st.set_page_config(
@@ -48,6 +48,8 @@ def init_state() -> None:
         st.session_state.last_upload = None
     if "prediction" not in st.session_state:
         st.session_state.prediction = demo_prediction(None)
+    if "selected_scan_id" not in st.session_state:
+        st.session_state.selected_scan_id = None
 
 
 def goto(page: str) -> None:
@@ -76,6 +78,21 @@ def build_excel_report(severity: str, confidence: int, recommendations: list[str
         actions.to_excel(writer, sheet_name="Recommendations", index=False)
 
     return output.getvalue()
+
+
+def recommendation_disclaimer() -> None:
+    st.caption(
+        "Disclaimer: These recommendations are deliberately conservative, high-level action guides. "
+        "They do not constitute a full agronomic prescription, and explicitly acknowledge the "
+        "irreplaceable value of expert extension guidance for field-level management decisions."
+    )
+
+
+def bytes_to_data_url(data: bytes, mime_type: str) -> str:
+    import base64
+
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:{mime_type};base64,{encoded}"
 
 
 @dataclass
@@ -375,12 +392,16 @@ def results_page() -> None:
             st.markdown("<div class='leaf-preview'>🌽</div>", unsafe_allow_html=True)
 
     with right:
-        st.markdown(f"### {text['prediction']}: {severity_badge(severity)}", unsafe_allow_html=True)
+        st.markdown(
+            f"<div class='result-prediction'><h3>{text['prediction']}: {severity_badge(severity)}</h3></div>",
+            unsafe_allow_html=True,
+        )
         st.metric(text["confidence"], f"{confidence}%")
-        if prediction.get("source") == "model":
-            st.caption("Prediction generated with fall_armyworm_production/best.pt")
+        # if prediction.get("source") == "model":
+        #     st.caption("Prediction generated with fall_armyworm_production/best.pt")
 
         st.markdown(f"### {text['recommended_action']}")
+        recommendation_disclaimer()
         for recommendation in recommendations:
             st.write(f"- {recommendation}")
 
@@ -438,7 +459,7 @@ def history_page() -> None:
 
     severity_filter = st.segmented_control(
         "Filter by severity",
-        ["All", "Early", "Healthy", "Severe"],
+        ["All", "Early to Moderate", "Healthy", "Severe"],
         default="All",
     )
     rows = get_scans(severity_filter)
@@ -446,18 +467,48 @@ def history_page() -> None:
         st.info("No saved scans yet. Analyze a maize leaf image to build your history.")
         return
 
+    if st.session_state.selected_scan_id:
+        selected_scan = get_scan(st.session_state.selected_scan_id)
+        if selected_scan:
+            st.subheader(f"Scan #{selected_scan['id']} Details")
+            detail_image, detail_info = st.columns([1.1, 1])
+            with detail_image:
+                st.image(selected_scan["image"], caption="Full scan image", use_container_width=True)
+            with detail_info:
+                st.markdown(severity_badge(selected_scan["severity"]), unsafe_allow_html=True)
+                st.metric("Confidence", f"{selected_scan['confidence']}%")
+                st.write(f"**Logged:** {format_scan_time(selected_scan['scanned_at'])}")
+                st.write(f"**Source:** {selected_scan['source']}")
+                st.markdown("### Recommended Action")
+                recommendation_disclaimer()
+                for recommendation in SEVERITY_RECOMMENDATIONS[selected_scan["severity"]]:
+                    st.write(f"- {recommendation}")
+                if st.button("Close Details"):
+                    st.session_state.selected_scan_id = None
+                    st.rerun()
+
     for row_set in [rows[i : i + 4] for i in range(0, len(rows), 4)]:
         cols = st.columns(4)
         for col, item in zip(cols, row_set):
             with col:
-                st.image(item["image"], use_container_width=True)
-                st.markdown(f"**Scan #{item['id']}**")
-                st.caption(format_scan_time(item["scanned_at"]))
-                st.markdown(severity_badge(item["severity"]), unsafe_allow_html=True)
+                image_url = bytes_to_data_url(item["image"], item["image_type"])
                 st.markdown(
-                    f"<div style='margin-top:8px;font-weight:700;color:{SEVERITY_COLORS[item['severity']]}'>{item['confidence']}% confidence</div>",
+                    f"""
+                    <div class="history-card-fixed">
+                      <img src="{image_url}" alt="Scan #{item['id']}">
+                      <div class="history-card-body">
+                        <div class="feature-title">Scan #{item['id']}</div>
+                        <div class="muted">{format_scan_time(item['scanned_at'])}</div>
+                        <div style="margin-top:10px">{severity_badge(item['severity'])}</div>
+                        <div style="margin-top:8px;font-weight:700;color:{SEVERITY_COLORS[item['severity']]}">{item['confidence']}% confidence</div>
+                      </div>
+                    </div>
+                    """,
                     unsafe_allow_html=True,
                 )
+                if st.button("View Details", key=f"history_scan_{item['id']}", use_container_width=True):
+                    st.session_state.selected_scan_id = item["id"]
+                    st.rerun()
 
 
 def main() -> None:

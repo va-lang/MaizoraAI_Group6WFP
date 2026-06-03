@@ -31,6 +31,13 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            UPDATE scans
+            SET severity = 'Early to Moderate'
+            WHERE severity = 'Early'
+            """
+        )
 
 
 def save_scan(uploaded_file, prediction: dict) -> int | None:
@@ -74,6 +81,20 @@ def get_scans(severity: str = "All") -> list[dict]:
 
     with get_connection() as conn:
         return [dict(row) for row in conn.execute(query, params).fetchall()]
+
+
+def get_scan(scan_id: int) -> dict | None:
+    init_db()
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT id, scanned_at, image, image_type, severity, confidence, source
+            FROM scans
+            WHERE id = ?
+            """,
+            (scan_id,),
+        ).fetchone()
+        return dict(row) if row else None
 
 
 def format_scan_time(value: str) -> str:

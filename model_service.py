@@ -12,7 +12,7 @@ os.environ.setdefault("YOLO_CONFIG_DIR", "/private/tmp/maizesecure_ultralytics")
 os.environ.setdefault("MPLCONFIGDIR", "/private/tmp/maizesecure_matplotlib")
 CLASS_TO_SEVERITY = {
     "healthy": "Healthy",
-    "early_to_moderate": "Early",
+    "early_to_moderate": "Early to Moderate",
     "severe": "Severe",
 }
 CONFIDENCE_THRESHOLD = 0.25
@@ -26,7 +26,7 @@ def load_model():
 
 
 def _blank_scores() -> dict[str, float]:
-    return {"Healthy": 0.0, "Early": 0.0, "Severe": 0.0}
+    return {"Healthy": 0.0, "Early to Moderate": 0.0, "Severe": 0.0}
 
 
 def predict_leaf_image(uploaded_file) -> dict:

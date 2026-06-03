@@ -182,6 +182,31 @@ def apply_theme() -> None:
           line-height: 1.55;
         }
 
+        .history-card-fixed {
+          background: #ffffff;
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          overflow: hidden;
+          box-shadow: 0 1px 4px rgba(26,46,29,.07);
+          height: 380px;
+          display: flex;
+          flex-direction: column;
+          margin-bottom: 8px;
+        }
+
+        .history-card-fixed img {
+          width: 100%;
+          height: 185px;
+          object-fit: cover;
+          display: block;
+          background: var(--green-50);
+        }
+
+        .history-card-body {
+          padding: 16px;
+          flex: 1;
+        }
+
         .alert {
           border-radius: 10px;
           padding: 14px 16px;
@@ -211,6 +236,11 @@ def apply_theme() -> None:
           font-size: .78rem;
           font-weight: 700;
           border: 1px solid currentColor;
+        }
+
+        .result-prediction .severity-badge {
+          font-size: 1.05rem;
+          padding: 8px 16px;
         }
 
         .leaf-preview {
@@ -256,8 +286,10 @@ def apply_theme() -> None:
     )
 
 
-def severity_badge(severity: str) -> str:
+def severity_badge(severity: str, size: str = "normal") -> str:
     color = SEVERITY_COLORS[severity]
+    if size == "large":
+        return f"<span class='severity-badge' style='color:{color};font-size:1.05rem;padding:8px 16px'>● {severity}</span>"
     return f"<span class='severity-badge' style='color:{color}'>● {severity}</span>"
 
 
@@ -291,17 +323,17 @@ def demo_prediction(uploaded_file) -> dict:
         return {
             "severity": "Severe",
             "confidence": 86,
-            "scores": {"Severe": 86.2, "Moderate": 8.4, "Early": 4.1, "Healthy": 1.3},
+            "scores": {"Severe": 86.2, "Moderate": 8.4, "Early to Moderate": 4.1, "Healthy": 1.3},
         }
 
     digest = hashlib.sha256(uploaded_file.getvalue()).hexdigest()
     bucket = int(digest[:2], 16) % 4
-    severities = ["Healthy", "Early", "Moderate", "Severe"]
+    severities = ["Healthy", "Early to Moderate", "Moderate", "Severe"]
     severity = severities[bucket]
     confidence = [93, 74, 81, 88][bucket]
     scores = {
         "Healthy": 3.0,
-        "Early": 5.0,
+        "Early to Moderate": 5.0,
         "Moderate": 7.0,
         "Severe": 9.0,
     }
