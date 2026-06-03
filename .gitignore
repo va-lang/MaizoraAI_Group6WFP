@@ -1,7 +1,10 @@
-requirements.txt
 __pycache__/
 *.pyc
 .DS_Store
 .venv/
 .pytest_cache/
 .mypy_cache/
+maizesecure_scans.db
+maizesecure_scans.db-*
+maizora_scans.db
+maizora_scans.db-*

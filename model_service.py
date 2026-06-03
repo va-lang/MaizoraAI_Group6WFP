@@ -1,4 +1,4 @@
-"""Model loading and prediction helpers for MaizoraAI."""
+"""Model loading and prediction helpers for MaizeSecure."""
 
 import os
 from io import BytesIO
@@ -7,13 +7,13 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image
 
-MODEL_PATH = Path("maize_model_production_results/best.pt")
-os.environ.setdefault("YOLO_CONFIG_DIR", "/private/tmp/maizora_ultralytics")
-os.environ.setdefault("MPLCONFIGDIR", "/private/tmp/maizora_matplotlib")
+MODEL_PATH = Path("fall_armyworm_production/best.pt")
+os.environ.setdefault("YOLO_CONFIG_DIR", "/private/tmp/maizesecure_ultralytics")
+os.environ.setdefault("MPLCONFIGDIR", "/private/tmp/maizesecure_matplotlib")
 CLASS_TO_SEVERITY = {
     "healthy": "Healthy",
-    "early stage": "Early",
-    "late stage": "Severe",
+    "early_to_moderate": "Early",
+    "severe": "Severe",
 }
 CONFIDENCE_THRESHOLD = 0.25
 

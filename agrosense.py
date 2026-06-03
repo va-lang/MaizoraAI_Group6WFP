@@ -1,5 +1,8 @@
 import time
+import tempfile
+from dataclasses import dataclass
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 import streamlit as st
@@ -15,7 +18,6 @@ from app_components import (
 )
 from app_data import (
     DISTRICT_REPORTS,
-    HISTORY_DATA,
     REGIONAL_ACTIVITY,
     RESULT_TEXT,
     SEVERITY_COLORS,
@@ -24,10 +26,11 @@ from app_data import (
     TREND_DATA,
 )
 from model_service import predict_leaf_image
+from storage_service import format_scan_time, get_scans, init_db, save_scan
 
 
 st.set_page_config(
-    page_title="MaizoraAI - AI Maize Pest Detection",
+    page_title="MaizeSecure - AI Maize Pest Detection",
     page_icon="🌱",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -36,6 +39,7 @@ apply_theme()
 
 
 def init_state() -> None:
+    init_db()
     if "profile" not in st.session_state:
         st.session_state.profile = None
     if "page" not in st.session_state:
@@ -74,9 +78,54 @@ def build_excel_report(severity: str, confidence: int, recommendations: list[str
     return output.getvalue()
 
 
+@dataclass
+class InMemoryUpload:
+    data: bytes
+    type: str = "image/jpeg"
+    name: str = "video_frame.jpg"
+
+    def getvalue(self) -> bytes:
+        return self.data
+
+
+def extract_video_frame(video_file, frame_position: int) -> tuple[InMemoryUpload | None, str | None]:
+    try:
+        import cv2
+    except ImportError:
+        return None, "Video support requires opencv-python-headless. Install requirements and restart the app."
+
+    suffix = Path(video_file.name).suffix or ".mp4"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_video:
+        temp_video.write(video_file.getvalue())
+        temp_path = Path(temp_video.name)
+
+    try:
+        capture = cv2.VideoCapture(str(temp_path))
+        if not capture.isOpened():
+            return None, "Could not read the uploaded video."
+
+        frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT) or 0)
+        if frame_count > 1:
+            target_frame = int((frame_position / 100) * (frame_count - 1))
+            capture.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+
+        ok, frame = capture.read()
+        capture.release()
+        if not ok:
+            return None, "Could not extract a frame from the uploaded video."
+
+        ok, encoded = cv2.imencode(".jpg", frame)
+        if not ok:
+            return None, "Could not convert the video frame into an image."
+
+        return InMemoryUpload(encoded.tobytes()), None
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
 def sidebar_nav() -> None:
     with st.sidebar:
-        st.markdown("## 🌱 MaizoraAI")
+        st.markdown("## 🌱 MaizeSecure")
         st.caption("AI Fall Armyworm detection for Ghanaian maize farms")
         st.markdown(f"**Profile:** {st.session_state.profile}")
         if st.button("Switch Profile", use_container_width=True):
@@ -95,7 +144,7 @@ def sidebar_nav() -> None:
         st.write("🗺️ Outbreak Map")
         st.write("📘 Pesticide Guide")
         st.divider()
-        st.caption("Demo account")
+        st.caption("Profile")
         st.write("Akosua Kumi")
         st.caption("Farmer - Ejura District, Ashanti")
 
@@ -104,7 +153,7 @@ def profile_page() -> None:
     st.markdown(
         """
         <div class="hero">
-          <div class="tag">MaizoraAI Profiles</div>
+          <div class="tag">MaizeSecure Profiles</div>
           <h1>Select Your Profile</h1>
           <p>Choose Farmer to access the current maize crop scanning workflow. Extension Officer tools will be added later.</p>
         </div>
@@ -142,7 +191,7 @@ def profile_page() -> None:
 
 def extension_officer_page() -> None:
     with st.sidebar:
-        st.markdown("## 🌱 MaizoraAI")
+        st.markdown("## 🌱 MaizeSecure")
         st.markdown("**Profile:** Extension Officer")
         if st.button("Switch Profile", use_container_width=True):
             st.session_state.profile = None
@@ -166,7 +215,7 @@ def home_page() -> None:
     st.markdown(
         """
         <div class="hero">
-          <div class="tag">MaizoraAI - AI Maize Pest Detection</div>
+          <div class="tag">MaizeSecure - AI Maize Pest Detection</div>
           <h1>AI-Powered Fall Armyworm Detection for Ghanaian Farmers</h1>
           <p>Upload a maize leaf photo and get instant infestation severity predictions, actionable recommendations, and real-time outbreak monitoring from your phone.</p>
         </div>
@@ -215,20 +264,49 @@ def scan_page() -> None:
 
     left, right = st.columns([1.35, 1])
     with left:
-        uploaded_file = st.file_uploader(
-            "Upload maize leaf image",
-            type=["jpg", "jpeg", "png", "webp"],
-            help="Use a clear image where the leaf fills most of the frame.",
+        input_mode = st.segmented_control(
+            "Input source",
+            ["Image", "Camera", "Video"],
+            default="Image",
         )
-        camera_image = st.camera_input("Take maize leaf photo")
-        selected_image = camera_image or uploaded_file
+        selected_image = None
+
+        if input_mode == "Image":
+            uploaded_file = st.file_uploader(
+                "Upload maize leaf image",
+                type=["jpg", "jpeg", "png", "webp"],
+                help="Use a clear image where the leaf fills most of the frame.",
+            )
+            selected_image = uploaded_file
+        elif input_mode == "Camera":
+            selected_image = st.camera_input("Take maize leaf photo")
+        else:
+            video_file = st.file_uploader(
+                "Upload maize crop video",
+                type=["mp4", "mov", "avi", "m4v"],
+                help="Upload a short video and choose the frame that best shows the maize leaf.",
+            )
+            if video_file:
+                st.video(video_file)
+                frame_position = st.slider(
+                    "Frame position",
+                    min_value=0,
+                    max_value=100,
+                    value=50,
+                    help="Choose which point in the video to extract for AI analysis.",
+                )
+                selected_image, video_error = extract_video_frame(video_file, frame_position)
+                if video_error:
+                    st.error(video_error)
+
         if selected_image:
             st.session_state.last_upload = selected_image
-            st.image(selected_image, caption="Selected maize leaf image", use_container_width=True)
+            preview_image = selected_image.getvalue() if isinstance(selected_image, InMemoryUpload) else selected_image
+            st.image(preview_image, caption="Selected maize leaf image", use_container_width=True)
 
         if st.button("Analyze Crop", type="primary", use_container_width=True):
             if selected_image is None:
-                st.warning("Upload or capture a maize leaf image before analysis.")
+                st.warning("Upload, capture, or extract a maize leaf image before analysis.")
                 return
             progress = st.progress(0)
             status = st.empty()
@@ -242,6 +320,8 @@ def scan_page() -> None:
                 progress.progress(value)
                 time.sleep(0.25)
             st.session_state.prediction = predict_leaf_image(selected_image)
+            scan_id = save_scan(selected_image, st.session_state.prediction)
+            st.session_state.last_scan_id = scan_id
             st.session_state.scan_meta = {
                 "location": "Ashanti Region, Ejura",
                 "crop_stage": "Vegetative (V6)",
@@ -298,7 +378,7 @@ def results_page() -> None:
         st.markdown(f"### {text['prediction']}: {severity_badge(severity)}", unsafe_allow_html=True)
         st.metric(text["confidence"], f"{confidence}%")
         if prediction.get("source") == "model":
-            st.caption("Prediction generated with maize_model_production_results/best.pt")
+            st.caption("Prediction generated with fall_armyworm_production/best.pt")
 
         st.markdown(f"### {text['recommended_action']}")
         for recommendation in recommendations:
@@ -310,7 +390,7 @@ def results_page() -> None:
         c2.download_button(
             text["download"],
             data=build_excel_report(severity, confidence, recommendations),
-            file_name="MaizoraAI_report.xlsx",
+            file_name="MaizeSecure_report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )
@@ -354,32 +434,28 @@ def dashboard_page() -> None:
 
 def history_page() -> None:
     st.title("Scan History")
-    st.caption("Akosua Kumi - Ejura District, Ashanti - 47 total scans")
+    st.caption("Akosua Kumi - Ejura District, Ashanti")
 
     severity_filter = st.segmented_control(
         "Filter by severity",
         ["All", "Early", "Healthy", "Severe"],
         default="All",
     )
-    rows = HISTORY_DATA
-    if severity_filter != "All":
-        rows = [row for row in HISTORY_DATA if row["severity"] == severity_filter]
+    rows = get_scans(severity_filter)
+    if not rows:
+        st.info("No saved scans yet. Analyze a maize leaf image to build your history.")
+        return
 
     for row_set in [rows[i : i + 4] for i in range(0, len(rows), 4)]:
         cols = st.columns(4)
         for col, item in zip(cols, row_set):
             with col:
+                st.image(item["image"], use_container_width=True)
+                st.markdown(f"**Scan #{item['id']}**")
+                st.caption(format_scan_time(item["scanned_at"]))
+                st.markdown(severity_badge(item["severity"]), unsafe_allow_html=True)
                 st.markdown(
-                    f"""
-                    <div class="card">
-                      <div style="font-size:2.4rem">🌽</div>
-                      <div class="feature-title">{item['farm']}</div>
-                      <div class="muted">{item['date']}</div>
-                      <div class="muted">{item['location']}</div>
-                      <div style="margin-top:10px">{severity_badge(item['severity'])}</div>
-                      <div style="margin-top:10px;font-weight:700;color:{SEVERITY_COLORS[item['severity']]}">{item['confidence']}% confidence</div>
-                    </div>
-                    """,
+                    f"<div style='margin-top:8px;font-weight:700;color:{SEVERITY_COLORS[item['severity']]}'>{item['confidence']}% confidence</div>",
                     unsafe_allow_html=True,
                 )
 
