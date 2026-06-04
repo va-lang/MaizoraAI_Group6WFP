@@ -1,7 +1,7 @@
 """SQLite persistence for MaizeSecure scan history."""
 
 import sqlite3
-from datetime import datetime
+from datetime import date, datetime, time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -67,20 +67,38 @@ def save_scan(uploaded_file, prediction: dict) -> int | None:
         return int(cursor.lastrowid)
 
 
-def get_scans(severity: str = "All") -> list[dict]:
+def get_scans(severity: str = "All", start_date: date | None = None, end_date: date | None = None) -> list[dict]:
     init_db()
     query = """
         SELECT id, scanned_at, image, image_type, severity, confidence, source
         FROM scans
     """
-    params: tuple[str, ...] = ()
+    filters: list[str] = []
+    params: list[str] = []
     if severity != "All":
-        query += " WHERE severity = ?"
-        params = (severity,)
+        filters.append("severity = ?")
+        params.append(severity)
+    if start_date:
+        start_at = datetime.combine(start_date, time.min, tzinfo=TIMEZONE).isoformat(timespec="seconds")
+        filters.append("scanned_at >= ?")
+        params.append(start_at)
+    if end_date:
+        end_at = datetime.combine(end_date, time.max, tzinfo=TIMEZONE).isoformat(timespec="seconds")
+        filters.append("scanned_at <= ?")
+        params.append(end_at)
+    if filters:
+        query += " WHERE " + " AND ".join(filters)
     query += " ORDER BY scanned_at DESC"
 
     with get_connection() as conn:
         return [dict(row) for row in conn.execute(query, params).fetchall()]
+
+
+def clear_scan_history() -> None:
+    init_db()
+    with get_connection() as conn:
+        conn.execute("DELETE FROM scans")
+        conn.execute("DELETE FROM sqlite_sequence WHERE name = 'scans'")
 
 
 def get_scan(scan_id: int) -> dict | None:

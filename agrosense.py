@@ -1,6 +1,7 @@
 import time
 import tempfile
 from dataclasses import dataclass
+from datetime import date
 from io import BytesIO
 from pathlib import Path
 
@@ -26,7 +27,7 @@ from app_data import (
     TREND_DATA,
 )
 from model_service import predict_leaf_image
-from storage_service import format_scan_time, get_scan, get_scans, init_db, save_scan
+from storage_service import clear_scan_history, format_scan_time, get_scan, get_scans, init_db, save_scan
 
 
 st.set_page_config(
@@ -50,6 +51,8 @@ def init_state() -> None:
         st.session_state.prediction = demo_prediction(None)
     if "selected_scan_id" not in st.session_state:
         st.session_state.selected_scan_id = None
+    if "confirm_clear_history" not in st.session_state:
+        st.session_state.confirm_clear_history = False
 
 
 def goto(page: str) -> None:
@@ -457,14 +460,52 @@ def history_page() -> None:
     st.title("Scan History")
     st.caption("Akosua Kumi - Ejura District, Ashanti")
 
-    severity_filter = st.segmented_control(
-        "Filter by severity",
-        ["All", "Early to Moderate", "Healthy", "Severe"],
-        default="All",
-    )
-    rows = get_scans(severity_filter)
+    severity_col, date_col, clear_col = st.columns([1.35, 1.35, 0.8])
+    with severity_col:
+        severity_filter = st.segmented_control(
+            "Filter by severity",
+            ["All", "Early to Moderate", "Healthy", "Severe"],
+            default="All",
+        )
+    with date_col:
+        date_filter = st.segmented_control(
+            "Filter by date",
+            ["All dates", "Today", "Date range"],
+            default="All dates",
+        )
+    with clear_col:
+        st.write("")
+        st.write("")
+        if st.button("Clear History", width="stretch"):
+            st.session_state.confirm_clear_history = True
+
+    start_date = None
+    end_date = None
+    if date_filter == "Today":
+        start_date = date.today()
+        end_date = date.today()
+    elif date_filter == "Date range":
+        start_date, end_date = st.date_input(
+            "Choose date range",
+            value=(date.today(), date.today()),
+        )
+
+    if st.session_state.confirm_clear_history:
+        st.warning("This will permanently delete all saved scan history from this app.")
+        confirm_col, cancel_col = st.columns([0.35, 0.65])
+        if confirm_col.button("Yes, clear all", type="primary"):
+            clear_scan_history()
+            st.session_state.selected_scan_id = None
+            st.session_state.confirm_clear_history = False
+            st.success("Scan history cleared.")
+            st.rerun()
+        if cancel_col.button("Cancel"):
+            st.session_state.confirm_clear_history = False
+            st.rerun()
+
+    rows = get_scans(severity_filter, start_date, end_date)
     if not rows:
-        st.info("No saved scans yet. Analyze a maize leaf image to build your history.")
+        st.info("No scans match the selected filters.")
         return
 
     if st.session_state.selected_scan_id:
