@@ -26,7 +26,7 @@ from app_data import (
     SEVERITY_RECOMMENDATIONS_TWI,
     TREND_DATA,
 )
-from model_service import predict_leaf_image
+from model_service import predict_leaf_image, predict_video
 from storage_service import clear_scan_history, format_scan_time, get_scan, get_scans, init_db, save_scan
 
 
@@ -290,6 +290,8 @@ def scan_page() -> None:
             default="Image",
         )
         selected_image = None
+        video_file = None
+        video_sample_count = 8
 
         if input_mode == "Image":
             uploaded_file = st.file_uploader(
@@ -304,16 +306,23 @@ def scan_page() -> None:
             video_file = st.file_uploader(
                 "Upload maize crop video",
                 type=["mp4", "mov", "avi", "m4v"],
-                help="Upload a short video and choose the frame that best shows the maize leaf.",
+                help="Upload a short video. The AI will sample frames across the recording.",
             )
             if video_file:
                 st.video(video_file)
+                video_sample_count = st.slider(
+                    "Frames to analyze",
+                    min_value=3,
+                    max_value=15,
+                    value=8,
+                    help="More frames provide broader coverage but take longer to process.",
+                )
                 frame_position = st.slider(
-                    "Frame position",
+                    "Preview frame position",
                     min_value=0,
                     max_value=100,
                     value=50,
-                    help="Choose which point in the video to extract for AI analysis.",
+                    help="This only controls the preview. Analysis samples the full video.",
                 )
                 selected_image, video_error = extract_video_frame(video_file, frame_position)
                 if video_error:
@@ -333,14 +342,29 @@ def scan_page() -> None:
             for value, label in [
                 (25, "Image uploaded and validated"),
                 (50, "Preprocessing leaf features"),
-                (75, "Running CNN inference"),
+                (75, "Running AI inference"),
                 (100, "Generating recommendations"),
             ]:
                 status.write(label)
                 progress.progress(value)
                 time.sleep(0.25)
-            st.session_state.prediction = predict_leaf_image(selected_image)
-            scan_id = save_scan(selected_image, st.session_state.prediction)
+
+            if input_mode == "Video":
+                prediction, representative_frame = predict_video(
+                    video_file,
+                    sample_count=video_sample_count,
+                )
+                if representative_frame is not None:
+                    selected_image = InMemoryUpload(
+                        representative_frame,
+                        name="video_representative_frame.jpg",
+                    )
+                    st.session_state.last_upload = selected_image
+            else:
+                prediction = predict_leaf_image(selected_image)
+
+            st.session_state.prediction = prediction
+            scan_id = save_scan(selected_image, prediction)
             st.session_state.last_scan_id = scan_id
             st.session_state.scan_meta = {
                 "location": "Ashanti Region, Ejura",
@@ -389,7 +413,13 @@ def results_page() -> None:
 
     left, right = st.columns([1, 1.6])
     with left:
-        if st.session_state.last_upload is not None:
+        if prediction.get("annotated_image"):
+            st.image(
+                prediction["annotated_image"],
+                caption="AI detections",
+                width="stretch",
+            )
+        elif st.session_state.last_upload is not None:
             st.image(image_to_data_url(st.session_state.last_upload), caption=text["image_caption"], width="stretch")
         else:
             st.markdown("<div class='leaf-preview'>🌽</div>", unsafe_allow_html=True)
@@ -400,8 +430,11 @@ def results_page() -> None:
             unsafe_allow_html=True,
         )
         st.metric(text["confidence"], f"{confidence}%")
-        # if prediction.get("source") == "model":
-        #     st.caption("Prediction generated with fall_armyworm_production/best.pt")
+        if prediction.get("frames_processed"):
+            st.caption(
+                f"Analyzed {prediction['frames_processed']} sampled video frames. "
+                "Counts describe frame-level detections, not unique plants."
+            )
 
         st.markdown(f"### {text['recommended_action']}")
         recommendation_disclaimer()
@@ -418,6 +451,34 @@ def results_page() -> None:
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             width="stretch",
         )
+
+    class_counts = prediction.get("class_counts", {})
+    if class_counts:
+        st.markdown("### Detection Summary")
+        summary_columns = st.columns(3)
+        for column, label in zip(
+            summary_columns,
+            ["Healthy", "Early to Moderate", "Severe"],
+        ):
+            column.metric(label, class_counts.get(label, 0))
+
+    detections = prediction.get("detections", [])
+    if detections:
+        detail_rows = []
+        for index, detection in enumerate(detections[:100], start=1):
+            row = {
+                "#": index,
+                "Severity": detection["severity"],
+                "Confidence": f"{detection['confidence']:.1f}%",
+            }
+            if "frame" in detection:
+                row["Video Frame"] = detection["frame"]
+            detail_rows.append(row)
+
+        with st.expander("View detection details"):
+            st.dataframe(pd.DataFrame(detail_rows), width="stretch", hide_index=True)
+            if len(detections) > 100:
+                st.caption(f"Showing the first 100 of {len(detections)} detections.")
 
 
 def dashboard_page() -> None:
