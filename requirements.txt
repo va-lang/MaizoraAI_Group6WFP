@@ -7,3 +7,5 @@ opencv-python-headless
 ultralytics>=8.3
 av
 streamlit-webrtc
+libgl1
+libglib2.0-0t64
