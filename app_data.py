@@ -58,7 +58,7 @@ SEVERITY_RECOMMENDATIONS_TWI = {
 RESULT_TEXT = {
     "English": {
         "title": "AI Detection Results",
-        "caption": "Scan completed - demo inference",
+        "caption": "Scan completed - AI inference",
         "severe_alert": "<strong>Severe Infestation Detected.</strong> Immediate action required. Contact a MoFA extension officer.",
         "image_caption": "Analyzed image",
         "metadata": "Scan Metadata",
@@ -74,7 +74,7 @@ RESULT_TEXT = {
     },
     "Twi": {
         "title": "AI Nhwehwɛmu Aba",
-        "caption": "Scan no awie - demo nhwehwɛmu",
+        "caption": "Scan no awie - AI nhwehwɛmu",
         "severe_alert": "<strong>Yare no mu yɛ den.</strong> Ɛsɛ sɛ woyɛ biribi ntɛm. Frɛ MoFA extension officer.",
         "image_caption": "Mfonini a wɔahwɛ mu",
         "metadata": "Scan Ho Nsɛm",
