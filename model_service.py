@@ -9,7 +9,7 @@ from pathlib import Path
 import streamlit as st
 from PIL import Image, ImageDraw, ImageFont
 
-MODEL_PATH = Path("fall_armyworm_production/best.pt")
+MODEL_PATH = Path("fall_armyworm_production_version_3/best.pt")
 os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/maizesecure_ultralytics")
 os.environ.setdefault("MPLCONFIGDIR", "/tmp/maizesecure_matplotlib")
 
