@@ -1,5 +1,6 @@
 import time
 import tempfile
+import re
 from dataclasses import dataclass
 from datetime import date
 from io import BytesIO
@@ -98,6 +99,49 @@ def bytes_to_data_url(data: bytes, mime_type: str) -> str:
     return f"data:{mime_type};base64,{encoded}"
 
 
+def format_video_timestamp(seconds: float) -> str:
+    total_minutes, remaining_seconds = divmod(max(0, seconds), 60)
+    hours, minutes = divmod(int(total_minutes), 60)
+    if hours:
+        return f"{hours:02d}:{minutes:02d}:{remaining_seconds:05.2f}"
+    return f"{minutes:02d}:{remaining_seconds:05.2f}"
+
+
+def video_detection_rows(detections: list[dict]) -> list[dict]:
+    return [
+        {
+            "Video Timestamp": format_video_timestamp(
+                detection["timestamp_seconds"]
+            ),
+            "Severity": detection["severity"],
+            "Confidence": f"{detection['confidence']:.1f}%",
+        }
+        for detection in detections[:100]
+    ]
+
+
+def confidence_statement(severity: str, confidence: int) -> str:
+    if severity == "Healthy":
+        return (
+            f"The model is {confidence}% confident that there is no "
+            "Fall Armyworm infestation."
+        )
+    if severity == "Early to Moderate":
+        return (
+            f"The model is {confidence}% confident that the infestation "
+            "is at the early to moderate stage."
+        )
+    return (
+        f"The model is {confidence}% confident that the infestation "
+        "is at the severe stage."
+    )
+
+
+def valid_ghana_phone(value: str) -> bool:
+    normalized = re.sub(r"[\s-]", "", value)
+    return bool(re.fullmatch(r"(?:0\d{9}|\+233\d{9})", normalized))
+
+
 @dataclass
 class InMemoryUpload:
     data: bytes
@@ -148,7 +192,7 @@ def sidebar_nav() -> None:
         st.markdown("## 🌱 MaizeSecure")
         st.caption("AI Fall Armyworm detection for Ghanaian maize farms")
         st.markdown(f"**Profile:** {st.session_state.profile}")
-        if st.button("Switch Profile", width="stretch"):
+        if st.button("Logout", width="stretch"):
             st.session_state.profile = None
             st.rerun()
         st.divider()
@@ -170,50 +214,148 @@ def sidebar_nav() -> None:
 
 
 def profile_page() -> None:
-    st.markdown(
-        """
-        <div class="hero">
-          <div class="tag">MaizeSecure Profiles</div>
-          <h1>Select Your Profile</h1>
-          <p>Choose Farmer to access the current maize crop scanning workflow. Extension Officer tools will be added later.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    if "login_role" not in st.session_state:
+        st.session_state.login_role = "Farmer"
+
+    st.markdown('<div class="login-page-marker"></div>', unsafe_allow_html=True)
+    brand_col, form_col = st.columns(
+        [0.62, 1.38],
+        gap=None,
+        vertical_alignment="center",
     )
-    farmer_col, officer_col = st.columns(2)
-    with farmer_col:
+
+    with brand_col:
         st.markdown(
             """
-            <div class="card">
-              <div style="font-size:2.4rem">👨‍🌾</div>
-              <div class="feature-title">Farmer</div>
-              <div class="muted">Scan maize leaves, view AI results, download reports, and check scan history.</div>
+            <div class="login-brand-panel">
+              <div class="login-logo">
+                <span class="login-logo-icon">🌿</span>
+                <span>MaizeSecure</span>
+              </div>
+              <div class="login-brand-content">
+                <div class="login-eyebrow">AI-Powered Agriculture</div>
+                <h1>Protecting Ghana's<br>Maize Farms with AI</h1>
+                <p>
+                  Detect Fall Armyworm infestations early, monitor outbreaks in
+                  real time, and get expert guidance - all in one platform.
+                </p>
+                <div class="login-feature">✓ <span>Instant AI pest detection from leaf photos</span></div>
+                <div class="login-feature">✓ <span>Real-time outbreak maps for your region</span></div>
+                <div class="login-feature">✓ <span>Tailored treatment recommendations</span></div>
+              </div>
+              <div class="login-testimonial">
+                <em>"MaizeSecure helped me identify FAW early and save my entire harvest."</em>
+                <span>- <strong>Kofi A.</strong>, Farmer · Brong-Ahafo Region</span>
+              </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
-        if st.button("Continue as Farmer", type="primary", width="stretch"):
-            choose_profile("Farmer")
-    with officer_col:
-        st.markdown(
-            """
-            <div class="card">
-              <div style="font-size:2.4rem">🧑‍💼</div>
-              <div class="feature-title">Extension Officer</div>
-              <div class="muted">Regional monitoring and farmer support tools will be developed in the next phase.</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        if st.button("Sign in as an Extension Officer", width="stretch"):
-            choose_profile("Extension Officer")
+
+    with form_col:
+        with st.container(key="login_form_card"):
+            st.markdown(
+                """
+                <div class="login-form-heading">
+                  <h1>Welcome back</h1>
+                  <p>Sign in to continue to your MaizeSecure account</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                '<div class="login-role-label">I am signing in as...</div>',
+                unsafe_allow_html=True,
+            )
+            farmer_role, officer_role = st.columns(2, gap="small")
+            with farmer_role:
+                if st.button(
+                    "🧑‍🌾  Farmer\n\nScan & monitor crops",
+                    key="login_role_farmer",
+                    type=(
+                        "primary"
+                        if st.session_state.login_role == "Farmer"
+                        else "secondary"
+                    ),
+                    width="stretch",
+                ):
+                    st.session_state.login_role = "Farmer"
+                    st.rerun()
+            with officer_role:
+                if st.button(
+                    "📋  Extension Officer\n\nManage & advise farmers",
+                    key="login_role_officer",
+                    type=(
+                        "primary"
+                        if st.session_state.login_role == "Extension Officer"
+                        else "secondary"
+                    ),
+                    width="stretch",
+                ):
+                    st.session_state.login_role = "Extension Officer"
+                    st.rerun()
+
+            role = st.session_state.login_role
+            if role == "Farmer":
+                login_id = st.text_input(
+                    "Phone number",
+                    value="024 123 4567",
+                    help="Use a Ghana number such as 024 123 4567 or +233 24 123 4567.",
+                )
+            else:
+                login_id = st.text_input(
+                    "Email address",
+                    value="officer@mofa.gh",
+                )
+                st.markdown(
+                    '<div class="login-password-row">'
+                    '<span>Password</span>'
+                    '<a href="mailto:support@maizesecure.gh'
+                    '?subject=MaizeSecure%20password%20reset">'
+                    'Forgot password?</a>'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+                password = st.text_input(
+                    "Password",
+                    value="password123",
+                    type="password",
+                    label_visibility="collapsed",
+                )
+            signed_in = st.button(
+                "Sign in  →",
+                key="login_sign_in",
+                type="primary",
+                width="stretch",
+            )
+
+            if signed_in:
+                valid_login = (
+                    valid_ghana_phone(login_id)
+                    if role == "Farmer"
+                    else bool(login_id.strip())
+                )
+                valid_password = role == "Farmer" or bool(password)
+                if valid_login and valid_password:
+                    choose_profile(role)
+                else:
+                    if role == "Farmer":
+                        st.warning("Enter a valid Ghana phone number.")
+                    else:
+                        st.warning("Enter your email address and password.")
+
+            st.markdown(
+                '<div class="login-footer">Don\'t have an account? '
+                '<strong>Request access</strong></div>',
+                unsafe_allow_html=True,
+            )
 
 
 def extension_officer_page() -> None:
     with st.sidebar:
         st.markdown("## 🌱 MaizeSecure")
         st.markdown("**Profile:** Extension Officer")
-        if st.button("Switch Profile", width="stretch"):
+        if st.button("Logout", width="stretch"):
             st.session_state.profile = None
             st.rerun()
 
@@ -429,7 +571,7 @@ def results_page() -> None:
             f"<div class='result-prediction'><h3>{text['prediction']}: {severity_badge(severity)}</h3></div>",
             unsafe_allow_html=True,
         )
-        st.metric(text["confidence"], f"{confidence}%")
+        st.info(confidence_statement(severity, confidence))
         if prediction.get("frames_processed"):
             st.caption(
                 f"Analyzed {prediction['frames_processed']} sampled video frames. "
@@ -464,16 +606,17 @@ def results_page() -> None:
 
     detections = prediction.get("detections", [])
     if detections:
-        detail_rows = []
-        for index, detection in enumerate(detections[:100], start=1):
-            row = {
-                "#": index,
-                "Severity": detection["severity"],
-                "Confidence": f"{detection['confidence']:.1f}%",
-            }
-            if "frame" in detection:
-                row["Video Frame"] = detection["frame"]
-            detail_rows.append(row)
+        if prediction.get("source") == "video_model":
+            detail_rows = video_detection_rows(detections)
+        else:
+            detail_rows = [
+                {
+                    "#": index,
+                    "Severity": detection["severity"],
+                    "Confidence": f"{detection['confidence']:.1f}%",
+                }
+                for index, detection in enumerate(detections[:100], start=1)
+            ]
 
         with st.expander("View detection details"):
             st.dataframe(pd.DataFrame(detail_rows), width="stretch", hide_index=True)
@@ -581,6 +724,27 @@ def history_page() -> None:
                 st.metric("Confidence", f"{selected_scan['confidence']}%")
                 st.write(f"**Logged:** {format_scan_time(selected_scan['scanned_at'])}")
                 st.write(f"**Source:** {selected_scan['source']}")
+                class_counts = selected_scan.get("class_counts", {})
+                if class_counts:
+                    st.markdown("### Detection Summary")
+                    summary_columns = st.columns(3)
+                    for column, label in zip(
+                        summary_columns,
+                        ["Healthy", "Early to Moderate", "Severe"],
+                    ):
+                        column.metric(label, class_counts.get(label, 0))
+                detections = selected_scan.get("detections", [])
+                if selected_scan["source"] == "video_model" and detections:
+                    with st.expander("View detection details"):
+                        st.dataframe(
+                            pd.DataFrame(video_detection_rows(detections)),
+                            width="stretch",
+                            hide_index=True,
+                        )
+                        if len(detections) > 100:
+                            st.caption(
+                                f"Showing the first 100 of {len(detections)} detections."
+                            )
                 st.markdown("### Recommended Action")
                 recommendation_disclaimer()
                 for recommendation in SEVERITY_RECOMMENDATIONS[selected_scan["severity"]]:
