@@ -186,6 +186,7 @@ def predict_video(video_file, sample_count: int = 8) -> tuple[dict, bytes | None
             capture.release()
             return _error_result("The uploaded video contains no readable frames."), None
 
+        frames_per_second = float(capture.get(cv2.CAP_PROP_FPS) or 0)
         frames_to_sample = min(max(1, sample_count), total_frames)
         if frames_to_sample == 1:
             frame_indices = [0]
@@ -214,12 +215,22 @@ def predict_video(video_file, sample_count: int = 8) -> tuple[dict, bytes | None
             image = Image.fromarray(frame_rgb)
             result = _run_inference(image)
             detections = _extract_detections(result)
+            timestamp_seconds = (
+                frame_index / frames_per_second
+                if frames_per_second > 0
+                else capture.get(cv2.CAP_PROP_POS_MSEC) / 1000
+            )
 
             for detection in detections:
                 severity = detection["severity"]
                 counts[severity] += 1
                 confidences[severity].append(detection["confidence"])
-                all_detections.append({**detection, "frame": frame_index})
+                all_detections.append(
+                    {
+                        **detection,
+                        "timestamp_seconds": round(timestamp_seconds, 2),
+                    }
+                )
 
             frame_best = max(
                 (detection["confidence"] for detection in detections),
@@ -264,6 +275,7 @@ def predict_video(video_file, sample_count: int = 8) -> tuple[dict, bytes | None
             "detections": all_detections,
             "class_counts": dict(counts),
             "frames_processed": processed,
+            "frames_per_second": round(frames_per_second, 3),
             "annotated_image": best_annotated,
             "note": "Video result is based on sampled frame-level detections.",
         }, representative_image

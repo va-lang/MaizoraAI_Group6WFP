@@ -1,5 +1,6 @@
 """SQLite persistence for MaizeSecure scan history."""
 
+import json
 import sqlite3
 from datetime import date, datetime, time
 from pathlib import Path
@@ -38,6 +39,18 @@ def init_db() -> None:
             WHERE severity = 'Early'
             """
         )
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(scans)").fetchall()
+        }
+        if "class_counts" not in columns:
+            conn.execute(
+                "ALTER TABLE scans ADD COLUMN class_counts TEXT NOT NULL DEFAULT '{}'"
+            )
+        if "detections" not in columns:
+            conn.execute(
+                "ALTER TABLE scans ADD COLUMN detections TEXT NOT NULL DEFAULT '[]'"
+            )
 
 
 def save_scan(uploaded_file, prediction: dict) -> int | None:
@@ -52,8 +65,17 @@ def save_scan(uploaded_file, prediction: dict) -> int | None:
     with get_connection() as conn:
         cursor = conn.execute(
             """
-            INSERT INTO scans (scanned_at, image, image_type, severity, confidence, source)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO scans (
+                scanned_at,
+                image,
+                image_type,
+                severity,
+                confidence,
+                source,
+                class_counts,
+                detections
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 scanned_at,
@@ -62,6 +84,8 @@ def save_scan(uploaded_file, prediction: dict) -> int | None:
                 severity,
                 int(prediction.get("confidence", 0)),
                 prediction.get("source", "model"),
+                json.dumps(prediction.get("class_counts", {})),
+                json.dumps(prediction.get("detections", [])),
             ),
         )
         return int(cursor.lastrowid)
@@ -70,7 +94,16 @@ def save_scan(uploaded_file, prediction: dict) -> int | None:
 def get_scans(severity: str = "All", start_date: date | None = None, end_date: date | None = None) -> list[dict]:
     init_db()
     query = """
-        SELECT id, scanned_at, image, image_type, severity, confidence, source
+        SELECT
+            id,
+            scanned_at,
+            image,
+            image_type,
+            severity,
+            confidence,
+            source,
+            class_counts,
+            detections
         FROM scans
     """
     filters: list[str] = []
@@ -91,7 +124,11 @@ def get_scans(severity: str = "All", start_date: date | None = None, end_date: d
     query += " ORDER BY scanned_at DESC"
 
     with get_connection() as conn:
-        return [dict(row) for row in conn.execute(query, params).fetchall()]
+        rows = [dict(row) for row in conn.execute(query, params).fetchall()]
+        for row in rows:
+            row["class_counts"] = json.loads(row["class_counts"] or "{}")
+            row["detections"] = json.loads(row["detections"] or "[]")
+        return rows
 
 
 def clear_scan_history() -> None:
@@ -106,13 +143,27 @@ def get_scan(scan_id: int) -> dict | None:
     with get_connection() as conn:
         row = conn.execute(
             """
-            SELECT id, scanned_at, image, image_type, severity, confidence, source
+            SELECT
+                id,
+                scanned_at,
+                image,
+                image_type,
+                severity,
+                confidence,
+                source,
+                class_counts,
+                detections
             FROM scans
             WHERE id = ?
             """,
             (scan_id,),
         ).fetchone()
-        return dict(row) if row else None
+        if row is None:
+            return None
+        scan = dict(row)
+        scan["class_counts"] = json.loads(scan["class_counts"] or "{}")
+        scan["detections"] = json.loads(scan["detections"] or "[]")
+        return scan
 
 
 def format_scan_time(value: str) -> str:
